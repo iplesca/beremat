@@ -12,6 +12,16 @@
 */
 
 Route::get('/', [
-    'uses' => 'DashboardController@index',
+    'uses' => 'DashboardController@homepage',
     'as'   => 'home'
+]);
+
+Route::get('/random', [
+    'uses' => 'DashboardController@randomBeer',
+    'as'   => 'randomBeer'
+]);
+
+Route::get('/sameBrewery', [
+    'uses' => 'DashboardController@sameBrewery',
+    'as'   => 'sameBrewery'
 ]);
