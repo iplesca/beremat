@@ -1,0 +1,17 @@
+.container .row .btn {
+    margin: 10px;
+}
+#doSearch {
+    margin:0px;
+}
+.search-result-row {
+    margin-bottom: 10px;
+    border:solid 1px #FFF;
+}
+.search-result-row:hover {
+    border:solid 1px #000;
+    cursor: pointer;
+}
+.limited-description {
+    
+}
