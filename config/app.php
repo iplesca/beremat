@@ -51,7 +51,7 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'http://distilled.localhost'),
 
     /*
     |--------------------------------------------------------------------------
@@ -177,6 +177,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        App\BreweryDbApi\Providers\BreweryDbApiProvider::class,
 
     ],
 
@@ -193,6 +194,8 @@ return [
 
     'aliases' => [
 
+        'BreweryDbApi' => App\BreweryDbApi\Facades\BreweryDbApi::class,
+        
         'App' => Illuminate\Support\Facades\App::class,
         'Artisan' => Illuminate\Support\Facades\Artisan::class,
         'Auth' => Illuminate\Support\Facades\Auth::class,

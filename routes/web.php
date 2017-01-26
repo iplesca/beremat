@@ -25,3 +25,7 @@ Route::get('/sameBrewery', [
     'uses' => 'DashboardController@sameBrewery',
     'as'   => 'sameBrewery'
 ]);
+Route::post('/search', [
+    'uses' => 'DashboardController@searchForm',
+    'as'   => 'search'
+]);

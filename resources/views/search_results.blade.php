@@ -3,10 +3,11 @@
     <h4><strong>Search results</strong></h4>
     @if ($collection)
         @foreach ($collection as $item)
+            @if (isset($item['description']))
             <div class="col-lg-12">
                 <div class="row search-result-row">
                     <div class="col-lg-1">
-                        <img src="{{ $item['image']['icon'] }}">
+                        <img src="{{ $item['images']['icon'] }}">
                     </div>
                     <div class="col-lg-10">
                         <div class="row">
@@ -22,6 +23,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         @endforeach
     @else
     <em>No results found.</em>
