@@ -44,7 +44,15 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Exception $exception)
     {
-        return parent::render($request, $exception);
+        if ($exception instanceof \Pintlabs\Service\Brewerydb\ApiLimit) {
+            if ($exception->getCode() == \App\BreweryDbApi\BreweryDbApiErrorCodes::ERR_REQUEST_LIMIT) {
+                session()->flash('errorMessage', '[API limit reached] Cannot fetch more results. Please retry later (or tomorrow)');
+            }
+            return redirect()->route('home');
+        } else {
+            return parent::render($request, $exception);
+        }
+//        return parent::render($request, $exception);
     }
 
     /**

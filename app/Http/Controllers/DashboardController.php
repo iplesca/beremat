@@ -1,101 +1,132 @@
 <?php
 namespace App\Http\Controllers;
 
+use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+
 use App\BreweryDbApi\BreweryDbApi;
+use App\BeerDispatch;
+use App\SearchDispatch;
 
 class DashboardController extends Controller
 {
-    const SEARCH_TYPE_BEER    = 'beer';
-    const SEARCH_TYPE_BREWERY = 'brewery';
+    use ValidatesRequests;
     
+    /**
+     * Fetches a new random $currentBeer. 
+     * Redirect to home (to prevent accidental refresh -> API call)
+     * 
+     * @return \Illuminate\Routing\Redirector
+     */
     public function randomBeer()
     {
         $this->getCurrentBeer(true);
         return redirect()->route('home');
     }
+    /**
+     * Generates currentBeer.
+     * Displays the index (home) page.
+     * 
+     * @param bool $refresh Whether to refresh the $currentBeer in session
+     * @return \Illuminate\View\View
+     */
     public function homepage($refresh = false)
     {
+//        app('request')->session()->forget('errorMessage');
 //        app('request')->session()->forget('currentBeer');
         $this->getCurrentBeer();
         return view('index');
     }
+    /**
+     * Fetches more beer records using the $currentBeer brewery id.
+     * Display them as search results.
+     * 
+     * @return \Illuminate\View\View
+     */
     public function sameBrewery()
     {
         $currBeer = $this->getCurrentBeer();
         $beers = false;
         
         if ($currBeer) {
-            try {
-                $beers = app('BreweryDbApi')->getBeersByBreweryId($currBeer['brewery']['id']);
-
-            } catch (\Exception $e) {
-                $beers = false;
-
-                switch ($e->getCode()) {
-                    case \App\BreweryDbApi\BreweryDbApiErrorCodes::ERR_BREWERY_ID : 
-                        session()->flash('errorMessage', 'Brewery was not found.');
-                        break;
-                }
-            }
-        
+            $bd = new BeerDispatch();
+            $beers = $bd->getBeersFromSameBrewery($currBeer);
+            
             if ($beers) {
-                // premium-glitch: the /brewery/:id/beers won't return brewery data
-                // so hack it back
-                $beers[0]['brewery'] = $this->getCurrentBeer()['brewery'];
-
                 // set first one on display
                 $this->setCurrentBeer($beers[0]);
                 array_shift($beers);
+                
+                // ensure the search results have the appropriate structure
+                $beers = SearchDispatch::generateResultsFromBeerCollection($beers);
             }
+            
+            
         } else {
             session()->flash('errorMessage', 'Cannot find additional beers. Please retry.');
         }
         
         return view('index', [
-            'collectionType' => 'beer',
             'searchResults' => $beers
         ]);
     }
+    /**
+     * Searches for records using a text pattern and a type (beer/brewery)
+     * 
+     * @param Request $request
+     * @return \Illuminate\View\View
+     */
     public function searchForm(Request $request)
     {
+        // this will bail out of errors
         $this->validate($request, [
             'searchText' => ['required', 'regex:/^[-\w\s]+$/u'],
-            'searchType' => ['required'], ['in' => [self::SEARCH_TYPE_BEER, self::SEARCH_TYPE_BREWERY]]
+            'searchType' => ['required'], ['in' => [SearchDispatch::SEARCH_TYPE_BEER, SearchDispatch::SEARCH_TYPE_BREWERY]]
         ]);
         
-        try {
-            $results = app('BreweryDbApi')->search($request->get('searchText'), strtolower($request->get('searchType')));
-            
-        } catch (\Exception $e) {
-            session()->flash('errorMessage', 'An error has occured. Please retry.');
-            
+        $sd = new SearchDispatch();
+        $result = $sd->search($request->get('searchText'), strtolower($request->get('searchType')));
+        
+        
+        if (!$result) {
+            // 'cos mama i'm coooming hoomee...
             redirect()->route('home');
         }
         
         return view('index', [
-            'collectionType' => $request->get('searchType'),
-            'searchResults'  => $results
+            'searchResults'  => $result
         ]);
     }
+    /**
+     * Generates a new $currentBeer ($refreshRandom on demand) and stores it in session
+     * Returns the session $currentBeer
+     * 
+     * @param bool $refreshRandom
+     * @return array
+     */
     private function getCurrentBeer($refreshRandom = false)
     {
         if ($refreshRandom || !session('currentBeer')) {
-            try {
-                $currentBeer = app('BreweryDbApi')->getRandomBeer();
-            } catch (\Exception $e) {
+            $bd = new BeerDispatch();
+            $currentBeer = $bd->getRandomBeer();
+
+            if (false === $currentBeer) {
                 session()->flash('errorMessage', 'Cannot find a proper beer. Please retry.');
-                $currentBeer = false;
+            } else {
+                $this->setCurrentBeer($currentBeer);
             }
-            
-            $this->setCurrentBeer($currentBeer);
         } else {
             $currentBeer = session('currentBeer');
         }
-        
         return $currentBeer;
     }
+    /**
+     * Replace the session $currentBeer with a new array of App\Beer instance
+     * 
+     * @param  $currentBeer
+     */
     private function setCurrentBeer($currentBeer)
     {
         session()->put('currentBeer', $currentBeer);

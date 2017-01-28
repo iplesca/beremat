@@ -5,6 +5,7 @@ namespace App\BreweryDbApi\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\AliasLoader;
 use App\BreweryDbApi\BreweryDbApi as BreweryDb;
+use App\BreweryDbApi\BreweryDbCounter as Counter;
 
 class BreweryDbApiProvider extends ServiceProvider
 {
@@ -27,7 +28,9 @@ class BreweryDbApiProvider extends ServiceProvider
     public function register()
     {
         $this->app->bind('BreweryDbApi', function($app) {
-            return new BreweryDb($app['config']['brewerydb']);
+            $bdb = new BreweryDb($app['config']['brewerydb']);
+            $bdb->setCounter(new Counter());
+            return $bdb;
         });
     }
 //    public function register()

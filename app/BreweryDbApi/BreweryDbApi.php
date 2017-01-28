@@ -3,15 +3,13 @@
 namespace App\BreweryDbApi;
 
 use Pintlabs\Service\Brewerydb as Client;
+use Pintlabs\Service\Brewerydb\ApiLimit;
+use Pintlabs\Service\Brewerydb\Exception;
 use App\BreweryDbApi\BreweryDbApiErrorCodes;
 use Illuminate\Support\Facades\Log;
 
 class BreweryDbApi 
 {
-    /**
-     * How many times should retry an API call
-     */
-    const MAX_RETRIES = 3;
     /**
      * Client to talk to BreweryDB API
      * @var Pintlabs\Service\Brewerydb
@@ -23,6 +21,9 @@ class BreweryDbApi
      */
     private $logResults = true;
     
+    private $counter;
+    private $config;
+    
     /**
      * Creates wrapper for the BreweryDB API
      * Config available at /config/brewerydb.php
@@ -31,37 +32,75 @@ class BreweryDbApi
      */
     public function __construct($config)
     {
+        $this->config = $config;
         $this->apiClient = new Client($config['api_key'], $config['url']);
         $this->apiClient->setFormat('php');
+    }
+    public function setCounter(\App\BreweryDbApi\BreweryDbCounter $cnt)
+    {
+        // init counter
+        $data = $cnt::find(1);
+        
+        if (!$data) {
+            // first installation
+            $data = $cnt;
+            $data->current_count = 0;
+            
+            $a = \DateTime::createFromFormat('Y-m-d H:i:s', $this->config['api_start_interval'], new \DateTimeZone( $this->config['api_timezone'] ));
+            $sTimestamp = $a->getTimestamp();
+            
+//            echo 'time() = ' . time() . '<br>';
+//            echo '$sTimestamp = ' . $sTimestamp . '<br>';
+//            echo 'time() - $sTimestamp = ' . (time() - $sTimestamp) . '<br>';
+//            echo 'times = ' . ((time() - $sTimestamp) / $this->config['api_reset_interval']) . '<br>';
+            
+            // find new reset time
+            $times = round((time() - $sTimestamp) / $this->config['api_reset_interval'], 0, PHP_ROUND_HALF_DOWN) + 1;
+            $firstReset = $sTimestamp + $times * $this->config['api_reset_interval'];
+            
+            $b = new \DateTime();
+            $b->setTimezone(new \DateTimeZone(config('app.timezone')));
+            $b->setTimestamp($firstReset);
+            
+            $data->reset_time = $b->format('Y-m-d H:i:s');
+            
+            unset($a, $b);
+            
+            $data->save();
+        } else {
+            // check reset conditions
+            $now = time();
+            $a = \Datetime::createFromFormat('Y-m-d H:i:s', $data->reset_time, new \DateTimeZone(config('app.timezone')));
+            $resetTime = $a->getTimestamp();
+            
+            if ($now >= $resetTime) {
+                $data->current_count = 0;
+                // add new api_reset_interval
+                $a->setTimestamp($resetTime + $this->config['api_start_interval']);
+                $data->reset_time = $a->format('Y-m-d H:i:s');
+                
+                $data->save();
+            }
+            unset($a);
+        }
+        
+        $this->counter = $data;
     }
     /**
      * Fetches a random beer
      * 
      * @return false|BeerEntity
      */
-    public function getRandomBeer()
+    public function getRandomBeer($count = 1)
     {
         $params = [
             'availableId'   => 1,
             'order'         => 'random',
-            'randomCount'   => 1,
+            'randomCount'   => $count,
             'withBreweries' => 'Y'
         ];
-        // loop until we get a beer with description
-        $retriesLeft = self::MAX_RETRIES;
-        do {
-            $result = $this->apiRequest('beers', $params);
+        $result = $this->apiRequest('beers', $params);
 
-            if (false !== $result && count($result)) {
-                $result = $result[0];
-            }
-        } while (!$this->isValidBeerEntity($result) || 0 != --$retriesLeft);
-        
-        if (!$this->isValidBeerEntity($result)) {
-            throw new \Exception('Gave up ['. self::MAX_RETRIES .' retries] in finding a valid beer', BreweryDbApiErrorCodes::ERR_PROPER_BEER);
-        }
-        $result = $this->generateCollection($result);
-        
         return $result;
     }
     /**
@@ -75,62 +114,45 @@ class BreweryDbApi
     {
         // ensure proper id
         if (empty($breweryId)) {
-            throw new \Exception('Brewery ID must not be empty', BreweryDbApiErrorCodes::ERR_BREWERY_ID);
+            throw new Exception('Brewery ID must not be empty', BreweryDbApiErrorCodes::ERR_BREWERY_ID);
         }
-        $result = false;
         $params = [
             'withBreweries' => 'Y'
         ];
         
-        $beers = $this->apiRequest("brewery/$breweryId/beers", $params);
+        $result = $this->apiRequest("brewery/$breweryId/beers", $params);
         
-        if (!empty($beers)) {
-            $result = [];
-            foreach ($beers as $b) {
-                // keep only valid beer records (with description and label)
-                if ($this->isValidBeerEntity($b)) {
-                    $result[] = $this->generateCollection($b);
-                }
-            }
-        }
-            
         return $result;
     }
     public function search($pattern, $type, $page = 1)
     {
         // ensure proper patern
         if (empty($pattern) || empty($type)) {
-            throw new \Exception('Search criteria must not be empty', BreweryDbApiErrorCodes::ERR_SEARCH_EMPTY);
+            throw new Exception('Search criteria must not be empty', BreweryDbApiErrorCodes::ERR_SEARCH_EMPTY);
         }
         // only specific types
         if (false === in_array($type, ['beer', 'brewery'])) {
-            throw new \Exception('Search type must be either `beer` or `brewery`', BreweryDbApiErrorCodes::ERR_SEARCH_TYPE);
+            throw new Exception('Search type must be either `beer` or `brewery`', BreweryDbApiErrorCodes::ERR_SEARCH_TYPE);
         }
         
         $result = false;
         $params = [
-            'p'    => $page,    // i'll stick to the first page for the moment, no pagination
+            'p'    => $page,    // i'll stick to the first page for the moment => no pagination
             'q'    => $pattern,
             'type' => $type,
         ];
         
         $result = $this->apiRequest("search", $params);
         
-        // clean the bloody empty-description
-        foreach ($result as $k => $v) {
-            if (!isset($v['description'])) {
-                unset($result[$k]);
-            } else {
-                $result[$k] = $this->generateCollection($v);
-            }
-        }
-        
         return $result;
     }
-    
-    //////////
-    // PRIVATE
-    //////////
+    public function isRequestLimitReached()
+    {
+        return ($this->config['api_daily_requests'] <= $this->currentRequests()) ? true : false;
+    }
+    //----------------
+    // PRIVATE SHTUFF
+    //----------------
     
     /**
      * Calls internal $apiClient with given endpoint and params
@@ -142,8 +164,15 @@ class BreweryDbApi
      */
     private function apiRequest($endpoint, array $params = [])
     {
+        // check API request limit
+        if ($this->isRequestLimitReached()) {
+            throw new ApiLimit('BreweryDB API daily requests limit reached.', BreweryDbApiErrorCodes::ERR_REQUEST_LIMIT);
+        }
+        
         try {
             $result = $this->apiClient->request($endpoint, $params);
+            $this->incrementRequests();
+            
             // keep the data block - for the moment I don't need the rest
             $result = $result['data'];
             
@@ -151,7 +180,7 @@ class BreweryDbApi
                 Log::notice(sprintf('[%s]\nparams:\n%s\nAPI response\n%s', $endpoint, var_export($params, true), var_export($result, true)));
             }
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $result = false;
             /**
              * @link https://groups.google.com/d/msg/brewerydb-api/7dhWPu3cFjg/d2kw5WhOeT0J
@@ -163,74 +192,13 @@ class BreweryDbApi
         }
         return $result;
     }
-    /**
-     * Checks if $beer has:
-     *  - description
-     *  - image label
-     * 
-     * @param array $beer
-     * @return type
-     */
-    private function isValidBeerEntity($beer)
+    private function currentRequests()
     {
-        return (isset($beer['description']) && isset($beer['labels'])) ? true : false;
+        return $this->counter->current_count;
     }
-    /**
-     * Creates an internal "beer entity" (with defaults) from an API beer record
-     * NOTE: also unifies the beer/brewery images v. labels mess
-     * 
-     * @param BeerApiResult $beer
-     * @return BeerEntity
-     */
-    private function generateCollection($resultNode)
+    private function incrementRequests()
     {
-        $result['name'] = false;
-        $result['description'] = false;
-        $result['brewery'] = false;
-        // seems default labels are not needed
-        $result['images'] = [
-            'icon'   => asset('images/beer-glass-64.jpg'),
-            'medium' => asset('images/beer-glass-256.jpg'),
-            'large'  => asset('images/beer-glass-512.jpg'),
-        ];
-        
-        if (isset($resultNode['name'])) {
-            $result['name'] = $resultNode['name'];
-        }
-        if (isset($resultNode['description'])) {
-            $result['description'] = $resultNode['description'];
-        }
-        // if there are LABELS defined
-        if (isset($resultNode['labels'])) {
-            if (isset($resultNode['labels']['icon'])) {
-                $result['images']['icon'] = $resultNode['labels']['icon'];
-            }
-            if (isset($resultNode['labels']['medium'])) {
-                $result['images']['medium'] = $resultNode['labels']['medium'];
-            }
-            if (isset($resultNode['labels']['large'])) {
-                $result['images']['large'] = $resultNode['labels']['large'];
-            }
-        }
-        // if there are IMAGES defined
-        if (isset($resultNode['images'])) {
-            if (isset($resultNode['labels']['icon'])) {
-                $result['images']['icon'] = $resultNode['images']['icon'];
-            }
-            if (isset($resultNode['labels']['medium'])) {
-                $result['images']['medium'] = $resultNode['images']['medium'];
-            }
-            if (isset($resultNode['labels']['large'])) {
-                $result['images']['large'] = $resultNode['images']['large'];
-            }
-        }
-        if (isset($resultNode['breweries']) && isset($resultNode['breweries'][0])) {
-            $result['brewery'] = [
-                'name' => $resultNode['breweries'][0]['name'],
-                'id' => $resultNode['breweries'][0]['id'],
-            ];
-        }
-        
-        return $result;
+        $this->counter->current_count++;
+        $this->counter->save();
     }
 }

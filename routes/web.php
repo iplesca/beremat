@@ -11,6 +11,9 @@
 |
 */
 
+Route::get('/test', function () {
+    return view('layout2');
+});
 Route::get('/', [
     'uses' => 'DashboardController@homepage',
     'as'   => 'home'

@@ -16,7 +16,7 @@ interface BreweryDbApiErrorCodes
      */
     const ERR_SEARCH_TYPE     = 3;
     /**
-     * All retries used, giving up in finding a beer WITH description
+     * All the allowed API requests were consumed
      */
-    const ERR_PROPER_BEER     = 4;
+    const ERR_REQUEST_LIMIT   = 4;
 }

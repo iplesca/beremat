@@ -1,11 +1,13 @@
 @if (Session::get('currentBeer'))
 <div class="row">
     <div class="col-lg-1">
-        <img class="" src="{{ Session::get('currentBeer')['images']['medium'] }}">
+        <img class="" src="{{ Session::get('currentBeer')['image_medium'] }}">
     </div>
     <div class="col-lg-offset-2 col-lg-6">
         <div class="row">
             <div class="col-lg-12"><h3>{{ Session::get('currentBeer')['name'] }}</h3></div>
+            
+            @include('abv')            
             @if (Session::get('currentBeer')['description'])
                 <div class="col-lg-12">{{ Session::get('currentBeer')['description'] }}</div>
             @else

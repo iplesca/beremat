@@ -29,5 +29,20 @@
         @if (Session::has('errorMessage'))
             <script>alert("{{ Session::get('errorMessage') }}")</script>
         @endif
+        <script>
+            $(document).ready(function() {
+                $(".search-result-row").each(function() {
+                    var s = $(this);
+                    var mb = $(this).find('.limited-description');
+                    var tb = mb.find('.text-content');
+                    if (mb.height() < tb.height()) {
+                        $(this).find('.read-more').show().on('click.readmore', function () {
+                            mb.removeClass('limited-description');
+                            $(this).remove();
+                        });
+                    }
+                });
+            });
+        </script>
     </body>
 </html>

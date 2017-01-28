@@ -1,7 +1,7 @@
 <?php
 namespace Pintlabs\Service;
 
-use Pintlabs\Service\Exception\Brewerydb_Exception as Exception;
+use Pintlabs\Service\Brewerydb\Exception as Exception;
 
 /**
  * Provides a service to simplify communication with the the Brewery DB API.
@@ -92,7 +92,7 @@ class Brewerydb
      * @param string $endpoint The BreweryDb endpoint to use
      * @param array $args key value array of arguments
      *
-     * @throws Brewerydb_Exception
+     * @throws Exception
      *
      * @return array
      */
