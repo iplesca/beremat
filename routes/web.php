@@ -11,7 +11,24 @@
 |
 */
 
+Route::get('/test', function () {
+    return view('layout2');
+});
 Route::get('/', [
-    'uses' => 'DashboardController@index',
+    'uses' => 'DashboardController@homepage',
     'as'   => 'home'
+]);
+
+Route::get('/random', [
+    'uses' => 'DashboardController@randomBeer',
+    'as'   => 'randomBeer'
+]);
+
+Route::get('/sameBrewery', [
+    'uses' => 'DashboardController@sameBrewery',
+    'as'   => 'sameBrewery'
+]);
+Route::post('/search', [
+    'uses' => 'DashboardController@searchForm',
+    'as'   => 'search'
 ]);

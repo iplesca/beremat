@@ -1,7 +1,7 @@
 <?php
 namespace Pintlabs\Service;
 
-use Pintlabs\Service\Exception\Brewerydb_Exception;
+use Pintlabs\Service\Brewerydb\Exception as Exception;
 
 /**
  * Provides a service to simplify communication with the the Brewery DB API.
@@ -92,7 +92,7 @@ class Brewerydb
      * @param string $endpoint The BreweryDb endpoint to use
      * @param array $args key value array of arguments
      *
-     * @throws Brewerydb_Exception
+     * @throws Exception
      *
      * @return array
      */
@@ -139,8 +139,7 @@ class Brewerydb
         $this->_lastRawResponse = curl_exec($ch);
         if ($this->_lastRawResponse === false) {
             $this->_lastRawResponse = curl_error($ch);
-            require_once 'Pintlabs/Service/Brewerydb/Exception.php';
-            throw new Brewerydb_Exception('CURL Error: ' . curl_error($ch));
+            throw new Exception('CURL Error: ' . curl_error($ch));
         }
         
         // Response comes back as either JSON or PHP, so we decode it into a stdClass object
@@ -151,8 +150,7 @@ class Brewerydb
         }
         // Server provides error messages in http_code and error vars.  If not 200, we have an error.
         if (isset($this->_lastParsedResponse['error'])) {
-            require_once 'Pintlabs/Service/Brewerydb/Exception.php';
-            throw new Brewerydb_Exception('Brewerydb Service Error: ' .
+            throw new Exception('Brewerydb Service Error: ' .
                     $this->_lastParsedResponse['error']['message']);
         }
         

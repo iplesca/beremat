@@ -7,5 +7,5 @@ namespace Pintlabs\Service\Brewerydb;
  * @see    http://developer.pintlabs.com/brewerydb/api-documentation/
  * @author Pintlabs Team - http://pintlabs.com
  */
-class Exception extends \Exception
+class ApiLimit extends \Exception
 {}
