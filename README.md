@@ -47,7 +47,7 @@ PUSHER_APP_ID=
 PUSHER_KEY=
 PUSHER_SECRET=
 ```
-5. Execute Laravel command `key:generate` to generate the application key;
+5. Execute Laravel command `php artisan key:generate` to generate the application key;
 6. Execute Laravel command `php artisan migrate` to create the tables;
 7. Mind permissions :)
 
