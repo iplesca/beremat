@@ -16,7 +16,6 @@ There is a main controller, *DashboardController* with 4 main action (homepage, 
 Feel free to change APP_DEBUG from _debug_ to _production_
 ```
 APP_ENV=local
-APP_KEY=base64:vWiJRE+2huubGILSbXgWLgUoZuOOT28BHeZViTrj7wY=
 APP_DEBUG=true
 APP_LOG_LEVEL=debug
 APP_URL=http://distilled.localhost
@@ -48,8 +47,14 @@ PUSHER_APP_ID=
 PUSHER_KEY=
 PUSHER_SECRET=
 ```
-5. Execute Laravel command `php artisan migrate` to create the tables;
-6. Mind permissions :)
+5. Execute Laravel command `php artisan key:generate` to generate the application key;
+6. Execute Laravel command `php artisan migrate` to create the tables;
+7. Mind permissions :)
+
+Bonus: If you do not have a webserver installed, you can instead run
+```
+php artisan serve
+```
 
 ## Frontend
 Plain and simple Bootstrap. 
